@@ -4,10 +4,10 @@ const API_SERVER_URL = process.env.WHATSAPP_API_SERVER_URL || 'http://localhost:
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { jid: string } }
+  { params }: { params: Promise<{ jid: string }> }
 ) {
   try {
-    const jid = params.jid
+    const { jid } = await params
 
     const url = `${API_SERVER_URL}/api/groups/${encodeURIComponent(jid)}`
 
