@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { GroupCard } from '@/components/groups/group-card'
+import { ConnectionBanner } from '@/components/layout/connection-banner'
 
 interface Group {
   jid: string
@@ -74,6 +75,8 @@ export default function GroupsPage() {
 
   return (
     <div className="space-y-6">
+      <ConnectionBanner />
+
       <div>
         <h1 className="text-3xl font-bold text-gray-900">WhatsApp Groups</h1>
         <p className="mt-2 text-gray-600">
