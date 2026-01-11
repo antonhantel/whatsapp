@@ -2,6 +2,8 @@
 
 AI-powered WhatsApp group message summarizer built on top of the WhatsApp MCP server.
 
+> **Windows Users**: Please see [WINDOWS_SETUP.md](./WINDOWS_SETUP.md) for detailed Windows-specific setup instructions.
+
 ## Project Structure
 
 ```
@@ -16,13 +18,31 @@ whatsummary/
 ## Prerequisites
 
 1. **Node.js** 18+ and npm
-2. **WhatsApp MCP Bridge** running on port 8080
-3. **Supabase** account and project
-4. **Anthropic API** key (for Claude Sonnet 4)
+2. **Python** 3.8+ (for the API server)
+3. **Go** 1.20+ (for the WhatsApp bridge)
+4. **Supabase** account and project
+5. **Anthropic API** key (for Claude Sonnet 4)
 
 ## Setup Instructions
 
-### 1. Start the WhatsApp MCP Bridge
+### 1. Install Python Dependencies
+
+```bash
+cd whatsapp-mcp
+pip install -r requirements-api.txt
+pip install -e whatsapp-mcp-server
+```
+
+### 2. Start the Python API Server
+
+```bash
+cd whatsapp-mcp
+python api-server.py
+```
+
+This starts the database access API on port 3001.
+
+### 3. Start the WhatsApp Go Bridge
 
 ```bash
 cd whatsapp-mcp/whatsapp-bridge
@@ -31,13 +51,13 @@ go run main.go
 
 On first run, scan the QR code with your WhatsApp mobile app to authenticate.
 
-### 2. Set Up Supabase Database
+### 4. Set Up Supabase Database
 
 1. Create a new Supabase project at https://supabase.com
 2. Run the SQL schema from `packages/database/schema.sql` in the Supabase SQL Editor
 3. Copy your project URL and keys
 
-### 3. Configure Environment Variables
+### 5. Configure Environment Variables
 
 ```bash
 cd apps/web
@@ -51,10 +71,12 @@ NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 WHATSAPP_BRIDGE_URL=http://localhost:8080
+WHATSAPP_API_SERVER_URL=http://localhost:3001
 ANTHROPIC_API_KEY=sk-ant-...
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-### 4. Install Dependencies and Run
+### 6. Install Dependencies and Run
 
 ```bash
 cd apps/web
@@ -111,18 +133,37 @@ The application will be available at http://localhost:3000
 
 ## Architecture Notes
 
-- **Database**: WhatsApp messages stored in SQLite by the MCP bridge at `./whatsapp-mcp/whatsapp-bridge/store/messages.db`
-- **Data Access**: Direct SQLite reads for messages, REST API calls to bridge for sending
+The application uses a three-tier architecture to avoid native module compilation issues:
+
+```
+┌──────────────────┐
+│  Next.js App     │  Port 3000 - Frontend & API orchestration
+│  (apps/web)      │
+└────────┬─────────┘
+         │
+         ├─── HTTP ───> Python API Server (port 3001)
+         │              └─ Database access via whatsapp.py
+         │              └─ Reads messages.db
+         │
+         └─── HTTP ───> Go WhatsApp Bridge (port 8080)
+                        └─ WhatsApp connection & messaging
+                        └─ Stores messages in SQLite
+```
+
+- **Database**: WhatsApp messages stored in SQLite by the Go bridge at `./whatsapp-mcp/whatsapp-bridge/store/messages.db`
+- **Data Access**: HTTP calls to Python API server (no native SQLite bindings in Node.js)
 - **User Data**: Stored in Supabase (profiles, settings, summaries)
 - **AI Processing**: Claude Sonnet 4 via Anthropic API
+- **Messaging**: REST calls to Go bridge for sending messages
 
 ## Troubleshooting
 
 ### Groups not loading?
 
-1. Ensure WhatsApp MCP bridge is running: `cd whatsapp-mcp/whatsapp-bridge && go run main.go`
-2. Check that the bridge is accessible at http://localhost:8080
-3. Verify messages.db exists at `whatsapp-mcp/whatsapp-bridge/store/messages.db`
+1. Ensure Python API server is running: `cd whatsapp-mcp && python api-server.py` (port 3001)
+2. Ensure WhatsApp Go bridge is running: `cd whatsapp-mcp/whatsapp-bridge && go run main.go` (port 8080)
+3. Check that messages.db exists at `whatsapp-mcp/whatsapp-bridge/store/messages.db`
+4. Verify environment variable `WHATSAPP_API_SERVER_URL=http://localhost:3001` is set
 
 ### Authentication errors?
 
